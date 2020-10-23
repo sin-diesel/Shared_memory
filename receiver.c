@@ -19,39 +19,47 @@
 #define MAX_SIZE 2048
 
 int main () {
-    char* buf = (char*) (MAX_SIZE, sizeof(char));
+    char* buf = (char*) calloc(MAX_SIZE, sizeof(char));
     assert(buf != NULL);
 
     const char* path = "/Users/stassidelnikov/Documents/MIPT/Operating_systems/Shared_memory/sync.txt";
     key_t key = ftok(path, PROJ_ID);
     assert(key != -1);
+    fprintf(stderr, "Key: %d\n", key);
 
     struct sembuf semafor_1 = {0, 1, 0}; // add
-    struct sembuf semafor_2 = {1, 1, 0}; // add
-    int sem_id = semget(key, 2, 0);
+    int sem_id = semget(key, 1, 0);
     assert(sem_id != -1);
 
-    //int res = semop(sem_id, &semafor, 1); // waiting until memory is ready for access
-    //assert(res != -1);
+    int input_size = 0;
+    int fifo = open("/Users/stassidelnikov/Documents/MIPT/Operating_systems/Shared_memory/mf", O_RDONLY);
+    assert(fifo > 0);
+    int n_read = read(fifo, &input_size, sizeof(int));
+    assert(n_read == sizeof(int));
+    close(fifo);
+    fprintf(stderr, "Buf size in receiver:%d\n", input_size);
 
-    int id = shmget(key, 10 * sizeof(char), 0); // ten bytes
+
+    int id = shmget(key, input_size * sizeof(char), IPC_CREAT | 0666); // ten bytes
     assert(id != -1);
+
     int res = semop(sem_id, &semafor_1, 1); // allowing transmitter to continue
     assert(res != -1);
 
     void* memory = shmat(id, NULL, 0); 
     assert(memory != (void*) -1);
     semafor_1.sem_op = -1;
-
     res = semop(sem_id, &semafor_1, 1);
     assert(res != -1);
+    //fprintf(stderr, "Mem[0]: %c\n", *((char*) memory + 1));
+    memcpy(buf, memory, input_size);
+    buf[input_size - 1] = '\0';
+    fprintf(stderr, "Buf: %s\n", buf);
 
-    memcpy(buf, memory, 5);
+    int det_res = shmdt(memory);
+    assert(det_res != -1);
 
-    res = semop(sem_id, &semafor_2, 1);
-    assert(res != -1);
-    //fprintf(stderr, "Buf:%s\n", buf);
-
+    free(buf);
     return 0;
 
 }

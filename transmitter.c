@@ -31,18 +31,26 @@ int main (int argc, char** argv) {
     fprintf(stderr, "Bytes read: %d\n", n_read);
     fprintf(stderr, "Data: %s\n", buf);
 
+    // transfering input_size to receiver
+    mkfifo("/Users/stassidelnikov/Documents/MIPT/Operating_systems/Shared_memory/mf", 0666);
+    int fifo = open("/Users/stassidelnikov/Documents/MIPT/Operating_systems/Shared_memory/mf", O_WRONLY);
+    assert(fifo > 0);
+    int n_write = write(fifo, &input_size, sizeof(int));
+    assert(n_write == sizeof(int));
+    close(fifo);
+    fprintf(stderr, "Buf size put in pipe transmitter:%d\n", input_size);
+
     const char* path = "/Users/stassidelnikov/Documents/MIPT/Operating_systems/Shared_memory/sync.txt";
     key_t key = ftok(path, PROJ_ID);
     assert(key != -1);
+    fprintf(stderr, "Key: %d\n", key);
+    
 
-    struct sembuf sem_set[2];
-    sem_set[0] = {0, -1, 0};
     struct sembuf semafor_1 = {0, -1, 0}; // sub
-    struct sembuf semafor_2 = {1, -1, 0}; // add
-    int sem_id = semget(key, 2, IPC_CREAT | 0666);
+    int sem_id = semget(key, 1, IPC_CREAT | 0666);
     assert(sem_id != -1);
 
-    int id = shmget(key, input_size * sizeof(char), IPC_CREAT | 0666);
+    int id = shmget(key, input_size * sizeof(char), IPC_CREAT | 0666); // 10 bytes
     assert(id != -1);
 
     void* memory = shmat(id, NULL, 0);
@@ -56,9 +64,6 @@ int main (int argc, char** argv) {
     assert(res != -1);
 
     fprintf(stderr, "After copying to shm: %s\n", (char*) memory);
-
-    res = semop(sem_id, &semafor_2, 1);
-    assert(res != -1);
 
     int det_res = shmdt(memory);
     assert(det_res != -1);
