@@ -27,24 +27,26 @@ int main () {
     assert(key != -1);
     fprintf(stderr, "Key: %d\n", key);
 
-    struct sembuf semafor_1 = {0, 1, 0}; // add
-    int sem_id = semget(key, 1, 0);
+    struct sembuf semafor_1 = {0, 1, 0};
+    int sem_id = semget(key, 1, IPC_CREAT | 0666);
     assert(sem_id != -1);
 
     int input_size = 0;
-    int fifo = open("/Users/stassidelnikov/Documents/MIPT/Operating_systems/Shared_memory/mf", O_RDONLY);
+    const char* fifo_path = "/Users/stassidelnikov/Documents/MIPT/Operating_systems/Shared_memory/mf";
+    int fifo = open(fifo_path, O_RDONLY);
     assert(fifo > 0);
     int n_read = read(fifo, &input_size, sizeof(int));
     assert(n_read == sizeof(int));
     close(fifo);
-    fprintf(stderr, "Buf size in receiver:%d\n", input_size);
+    fprintf(stderr, "Buf size retrieved from pipe by receiver:%d\n", input_size);
 
 
-    int id = shmget(key, input_size * sizeof(char), IPC_CREAT | 0666); // ten bytes
+    int id = shmget(key, input_size * sizeof(char), IPC_CREAT | 0666);
     assert(id != -1);
+    int res = 0;
 
-    int res = semop(sem_id, &semafor_1, 1); // allowing transmitter to continue
-    assert(res != -1);
+    //int res = semop(sem_id, &semafor_1, 1); // allowing transmitter to continue
+    //assert(res != -1);
 
     void* memory = shmat(id, NULL, 0); 
     assert(memory != (void*) -1);
@@ -54,7 +56,7 @@ int main () {
     //fprintf(stderr, "Mem[0]: %c\n", *((char*) memory + 1));
     memcpy(buf, memory, input_size);
     buf[input_size - 1] = '\0';
-    fprintf(stderr, "Buf: %s\n", buf);
+    fprintf(stderr, "Buf received: %s\n", buf);
 
     int det_res = shmdt(memory);
     assert(det_res != -1);
